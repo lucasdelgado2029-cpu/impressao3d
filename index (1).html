@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Controle de Produção 3D</title>
+<style>
+:root{--bg:#f5f3ef;--card:#fff;--ink:#292821;--muted:#77746c;--line:#e8e4dc;--accent:#687b69;--soft:#edf1eb}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+header{background:#30372f;color:#fff;padding:24px max(20px,calc((100vw - 1120px)/2))}
+header h1{font-size:25px;margin:0 0 4px}header p{margin:0;color:#d7ded5}
+main{max-width:1120px;margin:24px auto;padding:0 18px 48px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px;box-shadow:0 2px 10px #29282108}
+.stat small,.muted{color:var(--muted)}.stat strong{display:block;font-size:30px;margin-top:5px}
+h2{font-size:18px;margin:0 0 14px}h3{font-size:15px;margin:0 0 10px}
+.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+button,.filebtn{border:0;border-radius:9px;padding:10px 14px;background:var(--accent);color:white;font-weight:650;cursor:pointer}
+button.secondary{background:#ebe9e3;color:#393830}button.danger{background:#9c5149}
+input,select{border:1px solid #d8d4ca;border-radius:8px;padding:9px;background:#fff;color:var(--ink);max-width:100%}
+input[type=file]{display:none}.hint{font-size:13px;color:var(--muted);margin-top:9px}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:middle}th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+td input[type=number]{width:72px;padding:6px}td .sku{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.scroll{overflow:auto}.pill{display:inline-block;background:var(--soft);padding:3px 8px;border-radius:20px;font-size:12px}
+.empty{text-align:center;color:var(--muted);padding:24px}
+.rowhead{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+footer{font-size:12px;color:var(--muted);text-align:center;padding:20px}
+@media(max-width:700px){.grid{grid-template-columns:1fr}.card{padding:14px}header{padding:20px}table{min-width:720px}}
+</style>
+</head>
+<body>
+<header><h1>Controle de Produção 3D</h1><p>Organize pedidos, kits e quantidade real de peças para imprimir.</p></header>
+<main>
+<section class="grid">
+ <div class="card stat"><small>Pedidos importados</small><strong id="orders">0</strong></div>
+ <div class="card stat"><small>Peças necessárias</small><strong id="total">0</strong></div>
+ <div class="card stat"><small>Peças pendentes</small><strong id="pending">0</strong></div>
+</section>
+<section class="card">
+ <h2>1. Importar relatório da UpSeller</h2>
+ <div class="actions">
+  <label class="filebtn" for="pdf">Selecionar PDF</label><input id="pdf" type="file" accept="application/pdf">
+  <input id="date" type="date"><button class="secondary" id="sample">Carregar exemplo desta conversa</button>
+ </div>
+ <p class="hint">O PDF precisa ter texto selecionável (não ser apenas uma foto/escaneamento). A leitura é feita no seu navegador. Confira as quantidades após importar, principalmente kits com composição especial.</p>
+ <div id="status" class="hint" aria-live="polite"></div>
+</section>
+<section class="card">
+ <div class="rowhead"><h2>2. Produção por produto / SKU</h2><div class="actions"><input id="filterDate" type="date"><button class="secondary" id="clearFilter">Todas as datas</button><button class="secondary" id="csv">Exportar CSV</button></div></div>
+ <p class="hint">Pedidos iguais são agrupados pelo SKU e variação. Ajuste o multiplicador se o kit tiver uma composição diferente.</p>
+ <div class="scroll"><table><thead><tr><th>Produto / variação</th><th>SKU</th><th>Pedidos</th><th>Peças por pedido</th><th>Total peças</th><th>Já impresso</th><th>Pendente</th></tr></thead><tbody id="items"><tr><td colspan="7" class="empty">Importe um relatório para começar.</td></tr></tbody></table></div>
+</section>
+<section class="card">
+ <h2>3. Adicionar produto manualmente</h2>
+ <div class="actions">
+  <input id="manualName" placeholder="Nome do produto">
+  <input id="manualSku" placeholder="SKU (opcional)">
+  <input id="manualQty" type="number" min="1" value="1" style="width:90px" placeholder="Pedidos">
+  <input id="manualPack" type="number" min="1" value="1" style="width:90px" placeholder="Peças/pedido">
+  <button id="addManual">Adicionar</button>
+ </div>
+</section>
+<section class="card">
+ <div class="rowhead"><h2>Backup dos dados</h2><button class="danger" id="reset">Apagar todos os dados deste navegador</button></div>
+ <p class="hint">Os dados ficam salvos neste navegador e neste dispositivo. Exporte o CSV periodicamente. Para usar em outro computador ou celular, será necessário transferir os dados; esta versão ainda não tem conta nem sincronização na nuvem.</p>
+</section>
+<footer>Versão inicial gratuita • Os dados ficam no seu dispositivo</footer>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const today=new Date(); $('date').value=new Date(today.getTime()-today.getTimezoneOffset()*60000).toISOString().slice(0,10);
+let records=JSON.parse(localStorage.getItem('prod3d_records')||'[]');
+let filter='';
+const save=()=>{localStorage.setItem('prod3d_records',JSON.stringify(records));render()};
+function multiplier(v){let m=(v||'').match(/(?:^|\\D)(\\d+)\\s*(?:peças?|unidades?|un\\b)/i);return m?Math.max(1,+m[1]):1}
+function key(r){return [r.sku||'',r.variation||'',r.name||''].join('|')}
+function render(){
+ let visible=records.filter(r=>!filter||r.date===filter);
+ let groups=new Map();
+ visible.forEach(r=>{let k=key(r);if(!groups.has(k))groups.set(k,{...r,qty:0,printed:0,ids:[]});let g=groups.get(k);g.qty+=r.qty;g.printed+=r.printed||0;g.ids.push(r.id)});
+ let arr=[...groups.values()];
+ $('orders').textContent=visible.reduce((s,r)=>s+r.qty,0);
+ $('total').textContent=arr.reduce((s,g)=>s+g.qty*g.pack,0);
+ $('pending').textContent=arr.reduce((s,g)=>s+Math.max(0,g.qty*g.pack-g.printed),0);
+ $('items').innerHTML=arr.length?arr.map((g,i)=>`<tr><td><b>${esc(g.name)}</b><br><span class="pill">${esc(g.variation||'Sem variação')}</span></td><td><span class="sku">${esc(g.sku||'—')}</span></td><td>${g.qty}</td><td><input aria-label="Peças por pedido" type="number" min="1" value="${g.pack}" onchange="setPack('${encodeURIComponent(g.ids.join(','))}',this.value)"></td><td><b>${g.qty*g.pack}</b></td><td><input aria-label="Peças já impressas" type="number" min="0" max="${g.qty*g.pack}" value="${g.printed}" onchange="setPrinted('${encodeURIComponent(g.ids.join(','))}',this.value)"></td><td><b>${Math.max(0,g.qty*g.pack-g.printed)}</b></td></tr>`).join(''):'<tr><td colspan="7" class="empty">Nenhum produto para esta data.</td></tr>';
+}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+window.setPack=(ids,val)=>{let a=decodeURIComponent(ids).split(',');records.forEach(r=>{if(a.includes(r.id))r.pack=Math.max(1,parseInt(val)||1)});save()};
+window.setPrinted=(ids,val)=>{let a=decodeURIComponent(ids).split(',');let left=Math.max(0,parseInt(val)||0);records.filter(r=>a.includes(r.id)).forEach(r=>{let n=Math.min(r.qty*r.pack,left);r.printed=n;left-=n});save()};
+function addRow(name,variation,sku,qty,date,pack){records.push({id:crypto.randomUUID(),name,variation,sku,qty,pack:pack||multiplier(variation),printed:0,date});}
+function addRows(rows,date){let n=0;rows.forEach(r=>{if(!r.name||!r.qty)return;addRow(r.name,r.variation,r.sku,r.qty,date,r.pack);n++});save();$('status').textContent=`${n} linhas importadas. Confira os multiplicadores dos kits antes de iniciar a impressão.`}
+$('sample').onclick=()=>{
+ const d=$('date').value;
+ const rows=[
+ ['Mini Ganso 9 cm Decorativo Farmhouse','1 Unidade','1 unidade',2],
+ ['Cavalinho de Balanço para Árvore','12 Peças','12 un',2],
+ ['Soldadinho Quebra-Nozes 25cm Decorativo','Dourado Envelhecido','159796170571',2],
+ ['Cavalinho de Balanço Decorativo Off White','Dourado Envelhecido','189628429966',1],
+ ['Kit Mini Quebra-Nozes Bronze envelhecido','4 Peças','199195577330',4],
+ ['Kit Mini Quebra-Nozes Bronze envelhecido','12 Peças','199195577332',1],
+ ['Ganso 25cm Decorativo Dourado Envelhecido','-','23099874854',1],
+ ['Mini Ganso 9 cm Decorativo Farmhouse','3 Unidades','3 unidades',1],
+ ['Cavalinho de Balanço para Árvore','4 Peças','4 un',3],
+ ['Cabeça de Ganso Decorativa Farmhouse','-','58217310096',1],
+ ['Cavalinho de Balanço para Árvore','8 Peças','8 un',1]
+ ].map(([name,variation,sku,qty])=>({name,variation,sku,qty}));
+ addRows(rows,d);
+};
+$('addManual').onclick=()=>{let n=$('manualName').value.trim();if(!n)return alert('Informe o nome do produto.');addRow(n,'Manual',$('manualSku').value.trim(),Math.max(1,+$('manualQty').value||1),$('date').value,Math.max(1,+$('manualPack').value||1));$('manualName').value='';save()};
+$('filterDate').onchange=e=>{filter=e.target.value;render()};
+$('clearFilter').onclick=()=>{$('filterDate').value='';filter='';render()};
+$('reset').onclick=()=>{if(confirm('Apagar todos os registros salvos neste navegador?')){records=[];save();$('status').textContent='Dados apagados.'}};
+$('csv').onclick=()=>{let lines=[['Data','Produto','Variação','SKU','Pedidos','Peças por pedido','Total peças','Já impresso','Pendente']];records.forEach(r=>lines.push([r.date,r.name,r.variation,r.sku,r.qty,r.pack,r.qty*r.pack,r.printed,Math.max(0,r.qty*r.pack-r.printed)]));let csv=lines.map(row=>row.map(x=>'"'+String(x??'').replace(/"/g,'""')+'"').join(';')).join('\\n');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\\ufeff'+csv],{type:'text/csv;charset=utf-8'}));a.download='controle-producao-3d.csv';a.click();URL.revokeObjectURL(a.href)};
+let pendingRows=[];
+function showPreview(file){
+ const url=URL.createObjectURL(file);
+ $('preview').innerHTML=`<img src="${url}" alt="Print selecionado" style="max-width:100%;max-height:260px;border-radius:8px">`;
+}
+async function processImage(file){
+ if(!file||!file.type.startsWith('image/'))return;
+ showPreview(file);$('status').textContent='Lendo imagem…';$('review').style.display='none';
+ try{
+  const result=await Tesseract.recognize(file,'por+eng',{logger:m=>{if(m.status==='recognizing text')$('status').textContent=`Reconhecendo texto: ${Math.round((m.progress||0)*100)}%`;}});
+  const lines=result.data.text.split(/\n/).map(s=>s.trim()).filter(Boolean);pendingRows=[];
+  for(const line of lines){
+   if(/anúncios|variação|sku do anúncio|lista de resumo|qtd\.|total de itens|número de skus/i.test(line))continue;
+   const qtyMatch=line.match(/\b(\d{1,3})\s*$/);if(!qtyMatch)continue;
+   let qty=+qtyMatch[1],before=line.slice(0,qtyMatch.index).trim();if(before.length<3)continue;
+   let skuMatch=before.match(/\b\d{6,}\b/),sku=skuMatch?skuMatch[0]:'';if(skuMatch)before=before.replace(sku,' ').trim();
+   let vm=before.match(/\b(\d+\s*(?:peças?|unidades?|un)\b|dourado envelhecido|prata|branco|preto)\s*$/i);
+   let variation=vm?vm[1]:'',name=vm?before.slice(0,vm.index).trim():before;
+   name=name.replace(/[|_]+/g,' ').replace(/\s+/g,' ').trim();
+   if(name.length>=3)pendingRows.push({name,variation,sku,qty,pack:multiplier(variation)});
+  }
+  if(!pendingRows.length){$('status').textContent='Não consegui separar os produtos. Tente um print mais nítido ou cadastre manualmente.';return}
+  $('reviewRows').innerHTML=pendingRows.map((r,i)=>`<tr><td><input data-i="${i}" data-k="name" value="${esc(r.name)}" style="min-width:190px"></td><td><input data-i="${i}" data-k="variation" value="${esc(r.variation)}" style="min-width:110px"></td><td><input data-i="${i}" data-k="sku" value="${esc(r.sku)}" style="min-width:100px"></td><td><input data-i="${i}" data-k="qty" type="number" min="1" value="${r.qty}" style="width:65px"></td><td><input data-i="${i}" data-k="pack" type="number" min="1" value="${r.pack}" style="width:65px"></td></tr>`).join('');
+  $('review').style.display='block';$('status').textContent=`Encontrei ${pendingRows.length} linhas. Confira os dados antes de adicionar.`;
+ }catch(err){$('status').textContent='Erro ao reconhecer a imagem: '+err.message}
+}
+$('imageFile').onchange=e=>processImage(e.target.files[0]);
+$('pasteArea').addEventListener('click',()=>{$('pasteArea').focus();$('status').textContent='Pressione Ctrl + V para colar a imagem copiada.'});
+document.addEventListener('paste',e=>{const item=[...(e.clipboardData?.items||[])].find(x=>x.type.startsWith('image/'));if(item)processImage(item.getAsFile())});
+$('confirmImport').onclick=()=>{
+ document.querySelectorAll('#reviewRows input').forEach(input=>{let i=+input.dataset.i,k=input.dataset.k;pendingRows[i][k]=(k==='qty'||k==='pack')?Math.max(1,+input.value||1):input.value.trim()});
+ addRows(pendingRows,$('date').value);$('review').style.display='none';pendingRows=[];
+};
+$('cancelImport').onclick=()=>{$('review').style.display='none';pendingRows=[];$('status').textContent='Importação cancelada.'};render();
+</script></body></html>

@@ -22,6 +22,11 @@ td input[type=number]{width:72px;padding:6px}td .sku{font-size:12px;color:var(--
 .scroll{overflow:auto}.pill{display:inline-block;background:var(--soft);padding:3px 8px;border-radius:20px;font-size:12px}
 .empty{text-align:center;color:var(--muted);padding:24px}
 .rowhead{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.paste-zone{border:1px dashed #a2ada0;border-radius:8px;padding:9px;color:var(--ink);cursor:pointer;background:var(--soft);font-size:13px}
+.bling-automatic{background:#f5f7f3;border:1px solid var(--line);border-radius:10px;padding:14px}
+.inline-checkbox{display:flex;align-items:center;gap:6px;font-size:13px}
+.inline-checkbox input{width:18px;height:18px}
+#blingOrders input[type=checkbox]{width:18px;height:18px}
 footer{font-size:12px;color:var(--muted);text-align:center;padding:20px}
 @media(max-width:700px){.grid{grid-template-columns:1fr}.card{padding:14px}header{padding:20px}table{min-width:720px}}
 </style>
@@ -42,14 +47,46 @@ footer{font-size:12px;color:var(--muted);text-align:center;padding:20px}
  </div>
  <p class="hint">O PDF precisa ter texto selecionável (não ser apenas uma foto/escaneamento). A leitura é feita no seu navegador. Confira as quantidades após importar, principalmente kits com composição especial.</p>
  <div id="status" class="hint" aria-live="polite"></div>
+ <h3 style="margin-top:15px">Ou importe um print do relatório</h3>
+ <div class="actions"><label class="filebtn" for="imageFile">Selecionar imagem</label><input id="imageFile" type="file" accept="image/*"><div id="pasteArea" tabindex="0" role="button" class="paste-zone">Ou clique aqui e pressione Ctrl+V para colar um print</div></div>
+ <div id="preview" class="hint"></div>
+ <div id="review" style="display:none;margin-top:12px">
+   <h3>Confira os itens encontrados antes de importar</h3>
+   <div class="scroll"><table><thead><tr><th>Produto</th><th>Variação</th><th>SKU</th><th>Quantidade</th><th>Peças por pedido</th></tr></thead><tbody id="reviewRows"></tbody></table></div>
+   <div class="actions" style="margin-top:10px"><button type="button" id="confirmImport">Adicionar à produção</button><button type="button" class="secondary" id="cancelImport">Cancelar</button></div>
+ </div>
+</section>
+<section class="card" id="blingSection">
+ <div class="rowhead"><h2>2. Pedidos Shopee via Bling</h2><span class="pill">Somente leitura no Bling</span></div>
+ <p class="hint">Consulta pedidos da sua loja e permite adicionar itens ao controle de produção. Nenhuma operação altera pedidos, estoque ou NF-e. A chave fica apenas nesta aba, não é salva no navegador.</p>
+ <div class="actions" style="margin-bottom:10px">
+  <input id="blingKey" type="password" autocomplete="off" spellcheck="false" placeholder="Chave administrativa da Vercel" aria-label="Chave administrativa" style="min-width:270px;flex:1">
+  <button type="button" class="secondary" id="blingStatusBtn">Verificar conexão</button>
+  <button type="button" class="secondary" id="blingConnectBtn">Autorizar Bling</button>
+ </div>
+ <div class="actions" style="margin-bottom:10px">
+  <label>De <input id="blingFrom" type="date"></label>
+  <label>Até <input id="blingTo" type="date"></label>
+  <label>Página <input id="blingPage" type="number" min="1" max="50" value="1" style="width:65px"></label>
+  <button type="button" id="blingLoadBtn">Consultar pedidos</button>
+ </div>
+ <p id="blingMessage" class="hint" aria-live="polite">Conecte o aplicativo privado Bling para começar.</p>
+ <div class="scroll"><table><thead><tr><th><input type="checkbox" id="blingAll" aria-label="Selecionar todos os pedidos exibidos"></th><th>Nº Bling</th><th>Nº Shopee</th><th>Data</th><th>Valor</th><th>Situação (ID)</th><th>Loja Bling (ID)</th></tr></thead><tbody id="blingOrders"><tr><td colspan="7" class="empty">Nenhum pedido consultado.</td></tr></tbody></table></div>
+ <div class="actions" style="margin-top:12px"><button type="button" id="blingImportBtn" disabled>Adicionar pedidos selecionados à produção</button><span class="hint" style="margin:0">Escolha apenas pedidos pagos/prontos para produção. Consulte a situação no Bling; o ID sozinho não identifica o status.</span></div>
+ <div class="bling-automatic" style="margin-top:14px">
+  <h3>Opcional — atualização automática enquanto esta aba estiver aberta</h3>
+  <p class="hint">Para evitar produzir vendas canceladas ou sem pagamento, informe os IDs das situações do Bling aprovadas após conferi-las. Sem IDs, nenhuma importação automática acontece.</p>
+  <div class="actions"><label>IDs de situações aprovadas <input id="blingAllowed" placeholder="Ex.: 12345, 67890" aria-label="IDs de situações autorizadas" style="min-width:180px"></label><label class="inline-checkbox"><input type="checkbox" id="blingAuto"> Consultar e importar a cada 5 minutos</label></div>
+  <p class="hint">A atualização automática só funciona com a página aberta e a chave administrativa digitada. Para receber pedidos com o site fechado será necessária uma etapa posterior de sincronização no servidor.</p>
+ </div>
 </section>
 <section class="card">
- <div class="rowhead"><h2>2. Produção por produto / SKU</h2><div class="actions"><input id="filterDate" type="date"><button class="secondary" id="clearFilter">Todas as datas</button><button class="secondary" id="csv">Exportar CSV</button></div></div>
+ <div class="rowhead"><h2>3. Produção por produto / SKU</h2><div class="actions"><input id="filterDate" type="date"><button class="secondary" id="clearFilter">Todas as datas</button><button class="secondary" id="csv">Exportar CSV</button></div></div>
  <p class="hint">Pedidos iguais são agrupados pelo SKU e variação. Ajuste o multiplicador se o kit tiver uma composição diferente.</p>
  <div class="scroll"><table><thead><tr><th>Produto / variação</th><th>SKU</th><th>Pedidos</th><th>Peças por pedido</th><th>Total peças</th><th>Já impresso</th><th>Pendente</th></tr></thead><tbody id="items"><tr><td colspan="7" class="empty">Importe um relatório para começar.</td></tr></tbody></table></div>
 </section>
 <section class="card">
- <h2>3. Adicionar produto manualmente</h2>
+ <h2>4. Adicionar produto manualmente</h2>
  <div class="actions">
   <input id="manualName" placeholder="Nome do produto">
   <input id="manualSku" placeholder="SKU (opcional)">
@@ -65,13 +102,15 @@ footer{font-size:12px;color:var(--muted);text-align:center;padding:20px}
 <footer>Versão inicial gratuita • Os dados ficam no seu dispositivo</footer>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="/production-map.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 const today=new Date(); $('date').value=new Date(today.getTime()-today.getTimezoneOffset()*60000).toISOString().slice(0,10);
-let records=JSON.parse(localStorage.getItem('prod3d_records')||'[]');
+let records=[];try{const saved=JSON.parse(localStorage.getItem('prod3d_records')||'[]');records=Array.isArray(saved)?saved:[]}catch(e){console.warn('Dados locais inválidos',e)}
 let filter='';
 const save=()=>{localStorage.setItem('prod3d_records',JSON.stringify(records));render()};
-function multiplier(v){let m=(v||'').match(/(?:^|\\D)(\\d+)\\s*(?:peças?|unidades?|un\\b)/i);return m?Math.max(1,+m[1]):1}
+function multiplier(v){const m=String(v||'').match(/(?:^|[^\d])(\d+)\s*(?:peças?|unidades?|un\b)/i);return m?Math.max(1,+m[1]):1}
 function key(r){return [r.sku||'',r.variation||'',r.name||''].join('|')}
 function render(){
  let visible=records.filter(r=>!filter||r.date===filter);
@@ -84,9 +123,17 @@ function render(){
  $('items').innerHTML=arr.length?arr.map((g,i)=>`<tr><td><b>${esc(g.name)}</b><br><span class="pill">${esc(g.variation||'Sem variação')}</span></td><td><span class="sku">${esc(g.sku||'—')}</span></td><td>${g.qty}</td><td><input aria-label="Peças por pedido" type="number" min="1" value="${g.pack}" onchange="setPack('${encodeURIComponent(g.ids.join(','))}',this.value)"></td><td><b>${g.qty*g.pack}</b></td><td><input aria-label="Peças já impressas" type="number" min="0" max="${g.qty*g.pack}" value="${g.printed}" onchange="setPrinted('${encodeURIComponent(g.ids.join(','))}',this.value)"></td><td><b>${Math.max(0,g.qty*g.pack-g.printed)}</b></td></tr>`).join(''):'<tr><td colspan="7" class="empty">Nenhum produto para esta data.</td></tr>';
 }
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-window.setPack=(ids,val)=>{let a=decodeURIComponent(ids).split(',');records.forEach(r=>{if(a.includes(r.id))r.pack=Math.max(1,parseInt(val)||1)});save()};
-window.setPrinted=(ids,val)=>{let a=decodeURIComponent(ids).split(',');let left=Math.max(0,parseInt(val)||0);records.filter(r=>a.includes(r.id)).forEach(r=>{let n=Math.min(r.qty*r.pack,left);r.printed=n;left-=n});save()};
+window.setPack=(ids,val)=>{let a=decodeURIComponent(ids).split(',');records.forEach(r=>{if(a.includes(r.id))r.pack=Math.max(1,parseInt(val)||1)});localStorage.setItem('prod3d_records',JSON.stringify(records));setTimeout(render,0)};
+window.setPrinted=(ids,val)=>{let a=decodeURIComponent(ids).split(',');let left=Math.max(0,parseInt(val)||0);records.filter(r=>a.includes(r.id)).forEach(r=>{let n=Math.min(r.qty*r.pack,left);r.printed=n;left-=n});localStorage.setItem('prod3d_records',JSON.stringify(records));setTimeout(render,0)};
 function addRow(name,variation,sku,qty,date,pack){records.push({id:crypto.randomUUID(),name,variation,sku,qty,pack:pack||multiplier(variation),printed:0,date});}
+// Interface estável para o módulo Bling. Os dados de impressão continuam no navegador.
+window.hasBlingOrder=(id)=>records.some(r=>r.origin==='Bling/Shopee'&&r.blingOrderId===String(id));
+window.importBlingProductionRows=(orders)=>{
+ const proposed=orders.flatMap(order=>ProductionMap.toProductionRows(order));
+ const result=ProductionMap.mergeRows(records,proposed);
+ records=result.records;save();
+ return {added:result.added,duplicates:result.duplicates,invalid:result.invalid};
+};
 function addRows(rows,date){let n=0;rows.forEach(r=>{if(!r.name||!r.qty)return;addRow(r.name,r.variation,r.sku,r.qty,date,r.pack);n++});save();$('status').textContent=`${n} linhas importadas. Confira os multiplicadores dos kits antes de iniciar a impressão.`}
 $('sample').onclick=()=>{
  const d=$('date').value;
@@ -109,31 +156,64 @@ $('addManual').onclick=()=>{let n=$('manualName').value.trim();if(!n)return aler
 $('filterDate').onchange=e=>{filter=e.target.value;render()};
 $('clearFilter').onclick=()=>{$('filterDate').value='';filter='';render()};
 $('reset').onclick=()=>{if(confirm('Apagar todos os registros salvos neste navegador?')){records=[];save();$('status').textContent='Dados apagados.'}};
-$('csv').onclick=()=>{let lines=[['Data','Produto','Variação','SKU','Pedidos','Peças por pedido','Total peças','Já impresso','Pendente']];records.forEach(r=>lines.push([r.date,r.name,r.variation,r.sku,r.qty,r.pack,r.qty*r.pack,r.printed,Math.max(0,r.qty*r.pack-r.printed)]));let csv=lines.map(row=>row.map(x=>'"'+String(x??'').replace(/"/g,'""')+'"').join(';')).join('\\n');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\\ufeff'+csv],{type:'text/csv;charset=utf-8'}));a.download='controle-producao-3d.csv';a.click();URL.revokeObjectURL(a.href)};
+$('csv').onclick=()=>{let lines=[['Data','Produto','Variação','SKU','Pedidos','Peças por pedido','Total peças','Já impresso','Pendente']];records.forEach(r=>lines.push([r.date,r.name,r.variation,r.sku,r.qty,r.pack,r.qty*r.pack,r.printed,Math.max(0,r.qty*r.pack-r.printed)]));let csv=lines.map(row=>row.map(x=>'"'+String(x??'').replace(/"/g,'""')+'"').join(';')).join('\n');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));a.download='controle-producao-3d.csv';a.click();URL.revokeObjectURL(a.href)};
 let pendingRows=[];
 function showPreview(file){
  const url=URL.createObjectURL(file);
  $('preview').innerHTML=`<img src="${url}" alt="Print selecionado" style="max-width:100%;max-height:260px;border-radius:8px">`;
 }
+function buildReview(){
+ $('reviewRows').innerHTML=pendingRows.map((r,i)=>`<tr><td><input data-i="${i}" data-k="name" value="${esc(r.name)}" style="min-width:190px"></td><td><input data-i="${i}" data-k="variation" value="${esc(r.variation)}" style="min-width:110px"></td><td><input data-i="${i}" data-k="sku" value="${esc(r.sku)}" style="min-width:100px"></td><td><input data-i="${i}" data-k="qty" type="number" min="1" value="${r.qty}" style="width:65px"></td><td><input data-i="${i}" data-k="pack" type="number" min="1" value="${r.pack}" style="width:65px"></td></tr>`).join('');
+ $('review').style.display='block';$('status').textContent=`Encontrei ${pendingRows.length} linhas. Confira os dados antes de adicionar.`;
+}
+// Heurística simples: exige revisão, pois PDFs UpSeller têm diferentes layouts.
+function parseReportLines(lines){
+ const rows=[];
+ for(const line of lines){
+  if(/anúncios|variação|sku do anúncio|lista de resumo|qtd\.|total de itens|número de skus/i.test(line))continue;
+  const qtyMatch=line.match(/\b(\d{1,3})\s*$/);if(!qtyMatch)continue;
+  let qty=+qtyMatch[1],before=line.slice(0,qtyMatch.index).trim();if(before.length<3)continue;
+  let skuMatch=before.match(/\b\d{6,}\b/),sku=skuMatch?skuMatch[0]:'';if(skuMatch)before=before.replace(sku,' ').trim();
+  let vm=before.match(/\b(\d+\s*(?:peças?|unidades?|un)\b|dourado envelhecido|prata|branco|preto)\s*$/i);
+  let variation=vm?vm[1]:'',name=vm?before.slice(0,vm.index).trim():before;
+  name=name.replace(/[|_]+/g,' ').replace(/\s+/g,' ').trim();
+  if(name.length>=3)rows.push({name,variation,sku,qty,pack:multiplier(variation+' '+name)});
+ }
+ return rows;
+}
+$('pdf').onchange=async e=>{
+ const file=e.target.files[0];if(!file)return;
+ $('status').textContent='Lendo PDF com texto selecionável…';$('review').style.display='none';
+ try {
+  if(!window.pdfjsLib)throw new Error('Não foi possível carregar o leitor de PDF.');
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const bytes=await file.arrayBuffer(),doc=await pdfjsLib.getDocument({data:bytes}).promise;
+  const all=[];
+  for(let p=1;p<=Math.min(doc.numPages,30);p++){
+   const page=await doc.getPage(p),content=await page.getTextContent();
+   const byY=new Map();
+   for(const item of content.items){
+    if(!item.str?.trim())continue;
+    const y=Math.round(item.transform[5]/3)*3;
+    if(!byY.has(y))byY.set(y,[]);
+    byY.get(y).push({x:item.transform[4],text:item.str});
+   }
+   [...byY.entries()].sort((a,b)=>b[0]-a[0]).forEach(([y,items])=>all.push(items.sort((a,b)=>a.x-b.x).map(i=>i.text).join(' ')));
+  }
+  pendingRows=parseReportLines(all);
+  if(!pendingRows.length){$('status').textContent='Não identifiquei itens automaticamente. Não importei nada. Use o print ou cadastro manual.';return}
+  buildReview();
+ }catch(err){$('status').textContent='Não foi possível ler o PDF: '+err.message}
+};
 async function processImage(file){
  if(!file||!file.type.startsWith('image/'))return;
  showPreview(file);$('status').textContent='Lendo imagem…';$('review').style.display='none';
  try{
   const result=await Tesseract.recognize(file,'por+eng',{logger:m=>{if(m.status==='recognizing text')$('status').textContent=`Reconhecendo texto: ${Math.round((m.progress||0)*100)}%`;}});
-  const lines=result.data.text.split(/\n/).map(s=>s.trim()).filter(Boolean);pendingRows=[];
-  for(const line of lines){
-   if(/anúncios|variação|sku do anúncio|lista de resumo|qtd\.|total de itens|número de skus/i.test(line))continue;
-   const qtyMatch=line.match(/\b(\d{1,3})\s*$/);if(!qtyMatch)continue;
-   let qty=+qtyMatch[1],before=line.slice(0,qtyMatch.index).trim();if(before.length<3)continue;
-   let skuMatch=before.match(/\b\d{6,}\b/),sku=skuMatch?skuMatch[0]:'';if(skuMatch)before=before.replace(sku,' ').trim();
-   let vm=before.match(/\b(\d+\s*(?:peças?|unidades?|un)\b|dourado envelhecido|prata|branco|preto)\s*$/i);
-   let variation=vm?vm[1]:'',name=vm?before.slice(0,vm.index).trim():before;
-   name=name.replace(/[|_]+/g,' ').replace(/\s+/g,' ').trim();
-   if(name.length>=3)pendingRows.push({name,variation,sku,qty,pack:multiplier(variation)});
-  }
+  const lines=result.data.text.split(/\n/).map(s=>s.trim()).filter(Boolean);
+  pendingRows=parseReportLines(lines);
   if(!pendingRows.length){$('status').textContent='Não consegui separar os produtos. Tente um print mais nítido ou cadastre manualmente.';return}
-  $('reviewRows').innerHTML=pendingRows.map((r,i)=>`<tr><td><input data-i="${i}" data-k="name" value="${esc(r.name)}" style="min-width:190px"></td><td><input data-i="${i}" data-k="variation" value="${esc(r.variation)}" style="min-width:110px"></td><td><input data-i="${i}" data-k="sku" value="${esc(r.sku)}" style="min-width:100px"></td><td><input data-i="${i}" data-k="qty" type="number" min="1" value="${r.qty}" style="width:65px"></td><td><input data-i="${i}" data-k="pack" type="number" min="1" value="${r.pack}" style="width:65px"></td></tr>`).join('');
-  $('review').style.display='block';$('status').textContent=`Encontrei ${pendingRows.length} linhas. Confira os dados antes de adicionar.`;
+  buildReview();
  }catch(err){$('status').textContent='Erro ao reconhecer a imagem: '+err.message}
 }
 $('imageFile').onchange=e=>processImage(e.target.files[0]);
@@ -144,4 +224,6 @@ $('confirmImport').onclick=()=>{
  addRows(pendingRows,$('date').value);$('review').style.display='none';pendingRows=[];
 };
 $('cancelImport').onclick=()=>{$('review').style.display='none';pendingRows=[];$('status').textContent='Importação cancelada.'};render();
-</script></body></html>
+</script>
+<script src="/bling-integracao.js" defer></script>
+</body></html>
